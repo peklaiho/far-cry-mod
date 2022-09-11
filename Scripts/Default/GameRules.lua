@@ -17,11 +17,11 @@ GameRules = {
 	m_nMusicId=0,
 
 	-- damage modifier tables { head, heart, body, arm, leg, explosion }
-	ai_to_player_damage = { 1, 1, 1, 0.5, 0.5, 0.5 },
-	player_to_ai_damage  = { 10, 2.0, 1, 0.5, 0.5, 1 },
-	ai_to_ai_damage   = { 0.5, 0.4, 0.4, 0.15, 0.15, 0.15 },
+	ai_to_player_damage = { 5, 2, 1.5, 1, 1, 1 },
+	player_to_ai_damage  = { 5, 2, 1.5, 1, 1, 1 },
+	ai_to_ai_damage   = { 2, 1, 1, 0.5, 0.5, 0.5 },
 
-	player_to_player_damage = { 3, 1, 1, 0.5, 0.5, 0.5 },
+	player_to_player_damage = { 5, 2, 1.5, 1, 1, 1 },
 
 	Arm2BodyDamage = .75,
 	Leg2BodyDamage = 1,
