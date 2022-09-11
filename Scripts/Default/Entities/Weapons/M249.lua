@@ -129,27 +129,6 @@ M249 = {
 			lifetime = 0.05,
 		},
 
-		-- trace "moving bullet"	
-		-- remove this if not nedded for current weapon
-		Trace = {
-			--filippo: CGFName do not works
-			geometry=System:LoadObject("Objects/Weapons/trail.cgf"),
-			--CGFName = "Objects/Weapons/trail.cgf",
-			
-			focus = 5000,
-			color = { 1, 1, 1},
-			speed = 120.0,
-			count = 1,
-			size = 1.0, 
-			size_speed = 0.0,
-			gravity = { x = 0.0, y = 0.0, z = 0.0 },
-			lifetime = 0.04,
-			frames = 0,
-			color_based_blending = 3,
-			particle_type = 0,
-			bouncyness = 0,
-		},
-
 		SoundMinMaxVol = { 175, 4, 2600 },
 
 	},
