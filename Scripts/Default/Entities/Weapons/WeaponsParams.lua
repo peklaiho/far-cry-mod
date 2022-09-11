@@ -114,12 +114,7 @@ WeaponsParams={
 				hud_icon="auto",
 				accuracy_modifier_prone = 0.5,
 				accuracy_modifier_crouch = 0.7,		 
-			        recoil_modifier_standing = 1.0,
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 6.0,
-				weapon_viewshake_amt = 0.01,
+			    recoil_modifier_standing = 1.0,
 			},
 			--SINGLE SHOT-------------------------------------------------
 			{
@@ -190,12 +185,7 @@ WeaponsParams={
 				hud_icon="auto",
 				accuracy_modifier_prone = 0.5,
 				accuracy_modifier_crouch = 0.7,		 
-			        recoil_modifier_standing = 1.0,
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 6.5,
-				weapon_viewshake_amt = 0.01,
+			    recoil_modifier_standing = 1.0,
 			},
 			--GRENADE-----------------------------------------------------
 			{
@@ -253,13 +243,7 @@ WeaponsParams={
 				hud_icon="auto",
 				accuracy_modifier_prone = 0.5,
 				accuracy_modifier_crouch = 0.7,		 
-			        recoil_modifier_standing = 1.0,
-				
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 7.0,
-				weapon_viewshake_amt = 0.01,
+			    recoil_modifier_standing = 1.0,
 			},
 			--grenade (not 20MM)-----------------------------------------------------
 			{
@@ -326,12 +310,7 @@ WeaponsParams={
 				hud_icon="auto",
 				accuracy_modifier_prone = 0.5,
 				accuracy_modifier_crouch = 0.7,		 
-			        recoil_modifier_standing = 1.0,
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				--weapon_viewshake = 2,
-				--weapon_viewshake_amt = 0.01,
+			    recoil_modifier_standing = 1.0,
 			},
 			--SINGLE SHOT-------------------------------------------------
 			{
@@ -404,12 +383,7 @@ WeaponsParams={
 				hud_icon="auto",
 				accuracy_modifier_prone = 0.5,
 				accuracy_modifier_crouch = 0.7,		 
-			        recoil_modifier_standing = 1.0,
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 5,
-				weapon_viewshake_amt = 0.01,
+			    recoil_modifier_standing = 1.0,
 			},
 		},
 		
@@ -521,12 +495,7 @@ WeaponsParams={
 				mat_effect="pancor_bullet_hit",
 				accuracy_modifier_prone = 0.5,
 				accuracy_modifier_crouch = 0.7,		 
-			        recoil_modifier_standing = 1.0,
-			        
-			        --view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 5.0,
-				weapon_viewshake_amt = 0.02,
+			    recoil_modifier_standing = 1.0,
 			},
 		},
 		
@@ -570,12 +539,7 @@ WeaponsParams={
 				hud_icon="auto",
 				accuracy_modifier_prone = 0.5,
 				accuracy_modifier_crouch = 0.7,		 
-			        recoil_modifier_standing = 1.0,
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 8.0,
-				weapon_viewshake_amt = 0.01,
+			    recoil_modifier_standing = 1.0,
 			},
 		},
 		
@@ -723,11 +687,6 @@ WeaponsParams={
 				iImpactForceMulFinal = 40, 	
 				iImpactForceMulFinalTorso = 130, 
 				hud_icon="auto",
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 10.0,
-				weapon_viewshake_amt = 0.01,
 			--
 			},
 		},
@@ -941,11 +900,6 @@ WeaponsParams={
 				iImpactForceMulFinal = 40, 	
 				iImpactForceMulFinalTorso = 130, 
 				hud_icon="auto",
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 5.0,
-				weapon_viewshake_amt = 0.01,
 			--
 			},
 			{
@@ -1027,11 +981,6 @@ WeaponsParams={
 							
 				--filippo, its the autoaim reticule sprite, if this is not present will be used the classic square reticule.
 				autoaim_sprite=System:LoadImage("Textures/hud/crosshair/roundcross.dds"),
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 5.0,
-				weapon_viewshake_amt = 0.01,
 			},
 			-- special AI firemode follows
 			{
@@ -1101,11 +1050,6 @@ WeaponsParams={
 				
 				--filippo, its the autoaim reticule sprite, if this is not present will be used the classic square reticule.
 				autoaim_sprite=System:LoadImage("Textures/hud/crosshair/roundcross.dds"),
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 5.0,
-				weapon_viewshake_amt = 0.01,
 			--
 			},
 			{
@@ -1228,11 +1172,6 @@ WeaponsParams={
 				accuracy_modifier_prone = 0.5,
 				accuracy_modifier_crouch = 0.7,		 
 	      		recoil_modifier_standing = 1.0,
-				
-				--view shaking: weapon_viewshake is the frequency of the shake, 
-				--		weapon_viewshake_amt is optional: if not present will be used an ammount equal to (weapon_viewshake*0.001)
-				weapon_viewshake = 8.0,
-				weapon_viewshake_amt = 0.01,
 			},
 		},
 		--In multiplayer, if this table exist will be merged with the table above for the firemodes in common.
