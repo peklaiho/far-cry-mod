@@ -218,7 +218,7 @@ function BasicWeapon.Client:OnInit()
 	end
 
 	if (self.Sway == nil and self.ZoomNoSway ~= nil) then
-		self.Sway=1.5;
+		self.Sway=0.5;
 	end
 	
 	if (self.special_bone_to_bind) then
