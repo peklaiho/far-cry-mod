@@ -1,0 +1,1870 @@
+diff --git a/projects/openttd_vs141.vcxproj b/projects/openttd_vs141.vcxproj
+index 66974da28..9b5328f67 100644
+--- a/projects/openttd_vs141.vcxproj
++++ b/projects/openttd_vs141.vcxproj
+@@ -389,6 +389,10 @@
+     <ClCompile Include="..\src\linkgraph\linkgraphschedule.cpp" />
+     <ClCompile Include="..\src\linkgraph\mcf.cpp" />
+     <ClCompile Include="..\src\linkgraph\refresh.cpp" />
++    <ClCompile Include="..\src\logic_signals.cpp" />
++    <ClCompile Include="..\src\logic_signals_cmd.cpp" />
++    <ClCompile Include="..\src\logic_signals_gui.cpp" />
++    <ClCompile Include="..\src\logic_signal_program.cpp" />
+     <ClCompile Include="..\src\map.cpp" />
+     <ClCompile Include="..\src\misc.cpp" />
+     <ClCompile Include="..\src\mixer.cpp" />
+@@ -409,6 +413,7 @@
+     <ClCompile Include="..\src\rev.cpp" />
+     <ClCompile Include="..\src\road.cpp" />
+     <ClCompile Include="..\src\roadstop.cpp" />
++    <ClCompile Include="..\src\saveload\logic_signals_sl.cpp" />
+     <ClCompile Include="..\src\screenshot.cpp" />
+     <ClCompile Include="..\src\settings.cpp" />
+     <ClCompile Include="..\src\signal.cpp" />
+@@ -477,6 +482,7 @@
+     <ClInclude Include="..\src\date_gui.h" />
+     <ClInclude Include="..\src\date_type.h" />
+     <ClInclude Include="..\src\debug.h" />
++    <ClInclude Include="..\src\logic_signals.h" />
+     <ClInclude Include="..\src\video\dedicated_v.h" />
+     <ClInclude Include="..\src\depot_base.h" />
+     <ClInclude Include="..\src\depot_func.h" />
+@@ -1365,4 +1371,4 @@
+     </ProjectReference>
+   </ItemGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+-</Project>
++</Project>
+\ No newline at end of file
+diff --git a/projects/openttd_vs141.vcxproj.filters b/projects/openttd_vs141.vcxproj.filters
+index 751e54887..c6ad72d2b 100644
+--- a/projects/openttd_vs141.vcxproj.filters
++++ b/projects/openttd_vs141.vcxproj.filters
+@@ -3087,9 +3087,29 @@
+     <ClCompile Include="..\src\thread\thread_win32.cpp">
+       <Filter>Threading</Filter>
+     </ClCompile>
++    <ClCompile Include="..\src\logic_signal_program.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClCompile Include="..\src\logic_signals.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClCompile Include="..\src\logic_signals_cmd.cpp">
++      <Filter>Command handlers</Filter>
++    </ClCompile>
++    <ClCompile Include="..\src\logic_signals_gui.cpp">
++      <Filter>GUI Source Code</Filter>
++    </ClCompile>
++    <ClCompile Include="..\src\saveload\logic_signals_sl.cpp">
++      <Filter>Save/Load handlers</Filter>
++    </ClCompile>
+   </ItemGroup>
+   <ItemGroup>
+     <None Include="..\media\openttd.ico" />
+     <None Include="..\README.md" />
+   </ItemGroup>
+-</Project>
++  <ItemGroup>
++    <ClInclude Include="..\src\logic_signals.h">
++      <Filter>Header Files</Filter>
++    </ClInclude>
++  </ItemGroup>
++</Project>
+\ No newline at end of file
+diff --git a/source.list b/source.list
+index 5bc395a84..444baba9a 100644
+--- a/source.list
++++ b/source.list
+@@ -50,6 +50,8 @@ linkgraph/linkgraphjob.cpp
+ linkgraph/linkgraphschedule.cpp
+ linkgraph/mcf.cpp
+ linkgraph/refresh.cpp
++logic_signal_program.cpp
++logic_signals.cpp
+ map.cpp
+ misc.cpp
+ mixer.cpp
+@@ -233,6 +235,7 @@ linkgraph/linkgraphschedule.h
+ linkgraph/mcf.h
+ linkgraph/refresh.h
+ livery.h
++logic_signals.h
+ map_func.h
+ map_type.h
+ mixer.h
+@@ -470,6 +473,7 @@ highscore_gui.cpp
+ industry_gui.cpp
+ intro_gui.cpp
+ linkgraph/linkgraph_gui.cpp
++logic_signals_gui.cpp
+ main_gui.cpp
+ misc_gui.cpp
+ music_gui.cpp
+@@ -573,6 +577,7 @@ company_cmd.cpp
+ depot_cmd.cpp
+ group_cmd.cpp
+ industry_cmd.cpp
++logic_signals_cmd.cpp
+ misc_cmd.cpp
+ object_cmd.cpp
+ order_cmd.cpp
+@@ -613,6 +618,7 @@ saveload/group_sl.cpp
+ saveload/industry_sl.cpp
+ saveload/labelmaps_sl.cpp
+ saveload/linkgraph_sl.cpp
++saveload/logic_signals_sl.cpp
+ saveload/map_sl.cpp
+ saveload/misc_sl.cpp
+ saveload/newgrf_sl.cpp
+diff --git a/src/command.cpp b/src/command.cpp
+index 72b3f4302..5bd0f4636 100644
+--- a/src/command.cpp
++++ b/src/command.cpp
+@@ -200,6 +200,8 @@ CommandProc CmdSetTimetableStart;
+ 
+ CommandProc CmdOpenCloseAirport;
+ 
++CommandProc CmdProgramLogicSignal;
++
+ #define DEF_CMD(proc, flags, type) {proc, #proc, (CommandFlags)flags, type}
+ 
+ /**
+@@ -358,6 +360,8 @@ static const Command _command_proc_table[] = {
+ 	DEF_CMD(CmdSetTimetableStart,                              0, CMDT_ROUTE_MANAGEMENT      ), // CMD_SET_TIMETABLE_START
+ 
+ 	DEF_CMD(CmdOpenCloseAirport,                               0, CMDT_ROUTE_MANAGEMENT      ), // CMD_OPEN_CLOSE_AIRPORT
++
++	DEF_CMD(CmdProgramLogicSignal,                             0, CMDT_OTHER_MANAGEMENT      ), // CMD_PROGRAM_LOGIC_SIGNAL
+ };
+ 
+ /*!
+diff --git a/src/command_type.h b/src/command_type.h
+index 650a8987a..1d386d13d 100644
+--- a/src/command_type.h
++++ b/src/command_type.h
+@@ -332,6 +332,8 @@ enum Commands {
+ 
+ 	CMD_OPEN_CLOSE_AIRPORT,           ///< open/close an airport to incoming aircraft
+ 
++	CMD_PROGRAM_LOGIC_SIGNAL,         ///< modify a logic signal program
++
+ 	CMD_END,                          ///< Must ALWAYS be on the end of this list!! (period)
+ };
+ 
+diff --git a/src/lang/english.txt b/src/lang/english.txt
+index 8bcfd9588..71632d757 100644
+--- a/src/lang/english.txt
++++ b/src/lang/english.txt
+@@ -2348,6 +2348,9 @@ STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_TUNNEL                  :{BLACK}Build ra
+ STR_RAIL_TOOLBAR_TOOLTIP_TOGGLE_BUILD_REMOVE_FOR                :{BLACK}Toggle build/remove for railway track, signals, waypoints and stations. Hold Ctrl to also remove the rail of waypoints and stations
+ STR_RAIL_TOOLBAR_TOOLTIP_CONVERT_RAIL                           :{BLACK}Convert/Upgrade the type of rail. Shift toggles building/showing cost estimate
+ 
++STR_RAIL_TOOLBAR_TOOLTIP_PROGRAM_SIGNAL                         :{BLACK}Program Signal{}When selected, clicking an existing logic signal will allow the modification of the signal program
++STR_ERROR_PROGRAM_NOT_LOGIC_SIGNAL                              :{WHITE}Only logic signals can be programmed
++
+ STR_RAIL_NAME_RAILROAD                                          :Railway
+ STR_RAIL_NAME_ELRAIL                                            :Electrified railway
+ STR_RAIL_NAME_MONORAIL                                          :Monorail
+@@ -2386,17 +2389,45 @@ STR_BUILD_SIGNAL_SEMAPHORE_EXIT_TOOLTIP                         :{BLACK}Exit Sig
+ STR_BUILD_SIGNAL_SEMAPHORE_COMBO_TOOLTIP                        :{BLACK}Combo Signal (semaphore){}The combo signal simply acts as both an entry and exit signal. This allows you to build large "trees" of pre-signals
+ STR_BUILD_SIGNAL_SEMAPHORE_PBS_TOOLTIP                          :{BLACK}Path Signal (semaphore){}A path signal allows more than one train to enter a signal block at the same time, if the train can reserve a path to a safe stopping point. Standard path signals can be passed from the back side
+ STR_BUILD_SIGNAL_SEMAPHORE_PBS_OWAY_TOOLTIP                     :{BLACK}One-way Path Signal (semaphore){}A path signal allows more than one train to enter a signal block at the same time, if the train can reserve a path to a safe stopping point. One-way path signals can't be passed from the back side
++STR_BUILD_SIGNAL_SEMAPHORE_LOGIC_TOOLTIP                        :{BLACK}Logic Signal (semaphore){}Logic signals are programmable signals which use other signals as inputs to determine their state
+ STR_BUILD_SIGNAL_ELECTRIC_NORM_TOOLTIP                          :{BLACK}Block Signal (electric){}This is the most basic type of signal, allowing only one train to be in the same block at the same time
+ STR_BUILD_SIGNAL_ELECTRIC_ENTRY_TOOLTIP                         :{BLACK}Entry Signal (electric){}Green as long as there is one or more green exit-signal from the following section of track. Otherwise it shows red
+ STR_BUILD_SIGNAL_ELECTRIC_EXIT_TOOLTIP                          :{BLACK}Exit Signal (electric){}Behaves in the same way as a block signal but is necessary to trigger the correct colour on entry & combo pre-signals
+ STR_BUILD_SIGNAL_ELECTRIC_COMBO_TOOLTIP                         :{BLACK}Combo Signal (electric){}The combo signal simply acts as both an entry and exit signal. This allows you to build large "trees" of pre-signals
+ STR_BUILD_SIGNAL_ELECTRIC_PBS_TOOLTIP                           :{BLACK}Path Signal (electric){}A path signal allows more than one train to enter a signal block at the same time, if the train can reserve a path to a safe stopping point. Standard path signals can be passed from the back side
+ STR_BUILD_SIGNAL_ELECTRIC_PBS_OWAY_TOOLTIP                      :{BLACK}One-way Path Signal (electric){}A path signal allows more than one train to enter a signal block at the same time, if the train can reserve a path to a safe stopping point. One-way path signals can't be passed from the back side
++STR_BUILD_SIGNAL_ELECTRIC_LOGIC_TOOLTIP                         :{BLACK}Logic Signal (electric){}Logic signals are programmable signals which use other signals as inputs to determine their state
+ STR_BUILD_SIGNAL_CONVERT_TOOLTIP                                :{BLACK}Signal Convert{}When selected, clicking an existing signal will convert it to the selected signal type and variant. Ctrl+Click will toggle the existing variant. Shift+Click shows estimated conversion cost
+ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_TOOLTIP                   :{BLACK}Dragging signal distance
+ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_DECREASE_TOOLTIP          :{BLACK}Decrease dragging signal distance
+ STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_INCREASE_TOOLTIP          :{BLACK}Increase dragging signal distance
+ 
++# Program signal window
++STR_PROGSIG_CAPTION                                             :{BLACK}Logic Signal Program {RAW_STRING}
++STR_PROGSIG_OWN_DEFAULT_COLOR                                   :{BLACK}Default color of this signal
++STR_PROGSIG_TRIGGER_COLOR                                       :{BLACK}Color of input signals to trigger on
++STR_PROGSIG_OPERATOR                                            :{BLACK}Operator used in evaluating inputs
++STR_PROGSIG_LINKED_SIGNALS                                      :{BLACK}Number of linked input signals
++STR_PROGSIG_OP_OR                                               :{BLACK}Or
++STR_PROGSIG_OP_AND                                              :{BLACK}And
++STR_PROGSIG_OP_NOT                                              :{BLACK}Not
++STR_PROGSIG_OP_XOR                                              :{BLACK}Xor
++STR_PROGSIG_COLOR_GREEN                                         :{BLACK}Green
++STR_PROGSIG_COLOR_RED                                           :{BLACK}Red
++STR_PROGSIG_ADD_LINK                                            :{BLACK}Add Input
++STR_PROGSIG_CLEAR_LINKS                                         :{BLACK}Clear All Inputs
++STR_PROGSIG_OWN_DEFAULT_COLOR_TOOLTIP                           :{BLACK}The color of this signal in default condition, when not triggered by inputs
++STR_PROGSIG_TRIGGER_COLOR_TOOLTIP                               :{BLACK}The color of input signals which qualifies them as TRUE in the logic comparison
++STR_PROGSIG_OPERATOR_TOOLTIP                                    :{BLACK}The operator which is used to combine input signals
++STR_PROGSIG_LINKED_SIGNALS_TOOLTIP                              :{BLACK}The number of input signals which have been linked to this signal program
++STR_PROGSIG_ADD_LINK_TOOLTIP                                    :{BLACK}Select signals which act as inputs for this signal
++STR_PROGSIG_CLEAR_LINKS_TOOLTIP                                 :{BLACK}Clear all input signals
++STR_ERROR_PROGRAM_SIGNAL_HEADER                                 :{WHITE}Error programming signal
++STR_ERROR_LINK_SIGNAL_HEADER                                    :{WHITE}Error linking signals
++STR_ERROR_LINK_SIGNAL_TO_ITSELF                                 :{WHITE}Logic signal cannot use itself as input
++STR_ERROR_LINK_SIGNAL_NO_SIGNAL                                 :{WHITE}You can only use other signals as inputs
++STR_ERROR_LINK_SIGNAL_LOOP                                      :{WHITE}Looping signal inputs are not allowed
++
+ # Bridge selection window
+ STR_SELECT_RAIL_BRIDGE_CAPTION                                  :{WHITE}Select Rail Bridge
+ STR_SELECT_ROAD_BRIDGE_CAPTION                                  :{WHITE}Select Road Bridge
+@@ -2636,21 +2667,28 @@ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXITSIGNALS                 :Railway track w
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBOSIGNALS                :Railway track with combo-signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PBSSIGNALS                  :Railway track with path signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NOENTRYSIGNALS              :Railway track with one-way path signals
++STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_LOGICSIGNALS                :Railway track with logic signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_PRESIGNALS           :Railway track with block and pre-signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_EXITSIGNALS          :Railway track with block and exit-signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_COMBOSIGNALS         :Railway track with block and combo-signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_PBSSIGNALS           :Railway track with block and path signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_NOENTRYSIGNALS       :Railway track with block and one-way path signals
++STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_LOGICSIGNALS         :Railway track with block and logic signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_EXITSIGNALS             :Railway track with pre- and exit-signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_COMBOSIGNALS            :Railway track with pre- and combo-signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_PBSSIGNALS              :Railway track with pre- and path signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_NOENTRYSIGNALS          :Railway track with pre- and one-way path signals
++STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_LOGICSIGNALS            :Railway track with pre- and logic signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_COMBOSIGNALS           :Railway track with exit- and combo-signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_PBSSIGNALS             :Railway track with exit- and path signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_NOENTRYSIGNALS         :Railway track with exit- and one-way path signals
++STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_LOGICSIGNALS           :Railway track with exit- and logic signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_PBSSIGNALS            :Railway track with combo- and path signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_NOENTRYSIGNALS        :Railway track with combo- and one-way path signals
++STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_LOGICSIGNALS          :Railway track with combo- and logic signals
+ STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PBS_NOENTRYSIGNALS          :Railway track with path and one-way path signals
++STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PBS_LOGICSIGNALS            :Railway track with path and logic signals
++STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NOENTRY_LOGICSIGNALS        :Railway track with one-way path and logic signals
+ STR_LAI_RAIL_DESCRIPTION_TRAIN_DEPOT                            :Railway train depot
+ 
+ STR_LAI_ROAD_DESCRIPTION_ROAD                                   :Road
+diff --git a/src/logic_signal_program.cpp b/src/logic_signal_program.cpp
+new file mode 100644
+index 000000000..86f1735bf
+--- /dev/null
++++ b/src/logic_signal_program.cpp
+@@ -0,0 +1,201 @@
++/*
++ * This file is part of OpenTTD.
++ * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
++ * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++/** @file logic_signal_program.cpp Implementation of the SignalProgram class functions. */
++
++#include "logic_signals.h"
++#include "rail_map.h"
++#include "viewport_func.h"
++#include "debug.h"
++
++/**
++ * Return the opposite of the given signal state.
++ * @param state The original signal state to revert.
++ * @return Green if the given argument is Red and vice versa.
++ */
++static inline SignalState OppositeSignalState(SignalState state)
++{
++	return state == SIGNAL_STATE_RED ? SIGNAL_STATE_GREEN : SIGNAL_STATE_RED;
++}
++
++/**
++ * The maximum number of signal programs which are evaluated in succession.
++ */
++static const int MAX_LOGIC_SIGNAL_RECURSIONS = 10;
++
++/**
++ * Default constructor, used by the save/load handler.
++ */
++SignalProgram::SignalProgram()
++{
++
++}
++
++/**
++ * The constructor for creating a new signal program.
++ * @param t The tile where the logic signal for this program is located.
++ * @param tr The track where the logic signal for this program is located.
++ */
++SignalProgram::SignalProgram(TileIndex t, Track tr)
++{
++	this->tile = t;
++	this->track = tr;
++
++	/* Default to a priority signal: if any of the linked input
++	 * signals are red, this one goes red. */
++	this->own_default_state = SIGNAL_STATE_GREEN;
++	this->trigger_state = SIGNAL_STATE_RED;
++	this->signal_op = SIGNAL_OP_OR;
++
++	this->blocked_by_train = false;
++}
++
++/**
++ * Add a new signal as input for this signal program.
++ * @param tile The tile of the signal to be linked.
++ * @param track The track of the signal to be linked.
++ */
++void SignalProgram::AddLink(TileIndex tile, Track track, bool remove_first)
++{
++	SignalReference source = GetSignalReference(tile, track);
++
++	if (!this->linked_signals.Contains(source)) {
++		/* Remove any existing link first, because we can only have one per signal (for now) */
++		if (remove_first) RemoveSignalLink(tile, track);
++
++		DEBUG(misc, 1, "Create signal link from 0x%X to 0x%X", tile, this->tile);
++
++		*(this->linked_signals.Append()) = source;
++		_signal_link_list[source] = GetSignalReference(this->tile, this->track);
++	}
++}
++
++/**
++ * Remove a linked signal from this program. The link must exist.
++ * @param tile The tile of the signal to be removed.
++ * @param track The track of the signal to be removed.
++ */
++void SignalProgram::RemoveLink(TileIndex tile, Track track)
++{
++	SignalReference key = GetSignalReference(tile, track);
++	SignalReference *value = this->linked_signals.Find(key);
++	assert(value != this->linked_signals.End());
++	this->linked_signals.Erase(value);
++}
++
++/**
++ * Remove all links that this signal program has.
++ */
++void SignalProgram::ClearAllLinks()
++{
++	/* Delete all links from the global list too */
++	for (SignalReference *sref = this->linked_signals.Begin(); sref != this->linked_signals.End(); sref++) {
++		_signal_link_list.erase(*sref);
++	}
++
++	this->linked_signals.Clear();
++}
++
++/**
++ * The number of signals linked to this signal program.
++ */
++uint SignalProgram::LinkCount()
++{
++	return this->linked_signals.Length();
++}
++
++/**
++ * This function is run when one of the signals linked to this program has changed.
++ * It will (possibly) change the state of the signal, and then recursively change
++ * the state of any signal linked to it.
++ * @param depth The recursion depth, which starts at 1.
++ */
++void SignalProgram::InputChanged(int depth)
++{
++	/* Ignore input changes while this signal is being blocked by a train */
++	if (this->blocked_by_train) {
++		DEBUG(misc, 4, "Ignored input change for logic signal at 0x%X, blocked by train", this->tile);
++		return;
++	} else {
++		DEBUG(misc, 4, "Input for logic signal at 0x%X changed (depth %d)", this->tile, depth);
++	}
++
++	SignalState new_state = this->Evaluate();
++	SignalState old_state = DetermineSignalState(this->tile, this->track);
++
++	if (new_state != old_state) {
++		SetSignalStateForTrack(this->tile, this->track, new_state);
++		MarkTileDirtyByTile(tile);
++
++		/* Recursively update any signals that have this one as input */
++		if (depth < MAX_LOGIC_SIGNAL_RECURSIONS) {
++			SignalStateChanged(this->tile, this->track, depth + 1);
++		}
++	}
++}
++
++/**
++ * The main evaluation function which determines the state of the signal linked
++ * to this signal program. It should be short, simple and readable.
++ */
++SignalState SignalProgram::Evaluate()
++{
++	int trigger_states = 0, not_trigger_states = 0;
++	SignalState new_state = this->own_default_state;
++
++	/* We need at least one linked signal to evaluate anything */
++	if (this->LinkCount() == 0) return new_state;
++
++	/* Loop through all linked signals and count the states */
++	for (SignalReference *sref = this->linked_signals.Begin(); sref != this->linked_signals.End(); sref++) {
++		TileIndex target_tile = GetTileFromSignalReference(*sref);
++		Track target_track = GetTrackFromSignalReference(*sref);
++		SignalState target_state = DetermineSignalState(target_tile, target_track);
++
++		/* Special handling for the NOT operator: reverse the color
++		 * of the first linked signal */
++		if (this->signal_op == SIGNAL_OP_NOT) new_state = OppositeSignalState(target_state);
++
++		if (target_state == this->trigger_state) {
++			trigger_states++;
++		} else {
++			not_trigger_states++;
++		}
++	}
++
++	switch (this->signal_op) {
++	case SIGNAL_OP_OR:
++		/* OR is triggered if we have at least one signal of trigger color */
++		if (trigger_states > 0) new_state = OppositeSignalState(this->own_default_state);
++		break;
++	case SIGNAL_OP_AND:
++		/* AND is triggered if no signals were of the 'wrong' color */
++		if (not_trigger_states == 0) new_state = OppositeSignalState(this->own_default_state);
++		break;
++	case SIGNAL_OP_XOR:
++		/* XOR is triggered if the number of signals in trigger color is uneven */
++		if ((trigger_states % 2) > 0) new_state = OppositeSignalState(this->own_default_state);
++		break;
++	}
++
++	DEBUG(misc, 3, "Logic signal at 0x%X evaluated to %d", this->tile, new_state);
++
++	return new_state;
++}
++
++/**
++ * Print the internal state of this signal program to the debug console.
++ */
++void SignalProgram::PrintStateToDebug()
++{
++	DEBUG(misc, 2, "Logic signal at 0x%X (default: %d, trigger: %d, operator: %d)", this->tile, this->own_default_state, this->trigger_state, this->signal_op);
++
++	for (SignalReference *sref = this->linked_signals.Begin(); sref != this->linked_signals.End(); sref++) {
++		TileIndex target_tile = GetTileFromSignalReference(*sref);
++		DEBUG(misc, 2, "...uses signal at 0x%X as input", target_tile);
++	}
++}
+diff --git a/src/logic_signals.cpp b/src/logic_signals.cpp
+new file mode 100644
+index 000000000..4971ac41b
+--- /dev/null
++++ b/src/logic_signals.cpp
+@@ -0,0 +1,294 @@
++/*
++ * This file is part of OpenTTD.
++ * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
++ * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++/** @file logic_signals.cpp Utility functions of the Logic Signals patch. */
++
++#include "logic_signals.h"
++#include "rail_map.h"
++#include "viewport_func.h"
++#include "tile_cmd.h"
++#include "window_func.h"
++#include "debug.h"
++
++/**
++ * List of all signal programs.
++ */
++SignalProgramList _signal_program_list;
++/**
++ * List of all links between signals.
++ */
++SignalLinkList _signal_link_list;
++
++/**
++ * Remove any nasty foul-smelling signal programs taking up precious RAM.
++ */
++void FreeAllSignalPrograms()
++{
++	for (SignalProgramList::iterator it = _signal_program_list.begin(); it != _signal_program_list.end(); it++) {
++		SignalProgram *program = it->second;
++		delete program;
++	}
++
++	_signal_program_list.clear();
++	_signal_link_list.clear();
++}
++
++/**
++ * Determine the color of signals at the given tile/track.
++ * @param tile The tile where the tested signal is located.
++ * @param track The track where the tested signal is located.
++ * @return Red if either of the two possible signals is red.
++ */
++inline SignalState DetermineSignalState(TileIndex tile, Track track)
++{
++	uint present_signals = GetPresentSignals(tile) & SignalOnTrack(track);
++	uint signal_states = GetSignalStates(tile);
++
++	if ((present_signals & ~signal_states) != 0) {
++		return SIGNAL_STATE_RED;
++	} else {
++		return SIGNAL_STATE_GREEN;
++	}
++}
++
++/**
++ * Set the signal state for the given tile and track to the specified state.
++ * Both possible signals for the given tile/track are set to the given state.
++ * @param tile Tile where the changed signal is located.
++ * @param track Track where the changed signal is located.
++ * @param state The new state to set to the signals.
++ */
++inline void SetSignalStateForTrack(TileIndex tile, Track track, SignalState state)
++{
++	if (state == SIGNAL_STATE_RED) {
++		SetSignalStates(tile, GetSignalStates(tile) & ~SignalOnTrack(track));
++	} else {
++		SetSignalStates(tile, GetSignalStates(tile) | SignalOnTrack(track));
++	}
++}
++
++/**
++ * Read a Track from a TileIndex.
++ *
++ * @param tile The tile where to read the Track from.
++ * @return The read Track
++ */
++inline Track SignalTrackFromTile(TileIndex tile)
++{
++	TrackBits trackbits = TrackStatusToTrackBits(GetTileTrackStatus(tile, TRANSPORT_RAIL, 0));
++
++	if (trackbits & TRACK_BIT_VERT) { // N-S direction
++		trackbits = (_tile_fract_coords.x <= _tile_fract_coords.y) ? TRACK_BIT_RIGHT : TRACK_BIT_LEFT;
++	}
++
++	if (trackbits & TRACK_BIT_HORZ) { // E-W direction
++		trackbits = (_tile_fract_coords.x + _tile_fract_coords.y <= 15) ? TRACK_BIT_UPPER : TRACK_BIT_LOWER;
++	}
++
++	return FindFirstTrack(trackbits);
++}
++
++/**
++ * Combine TileIndex and Track to a SignalReference.
++ * @param tile The tile to get a signal reference from
++ * @param track The track to get a signal reference from
++ * @return The signal reference made up of the given tile and track
++ */
++inline SignalReference GetSignalReference(TileIndex tile, Track track)
++{
++	return tile | (((uint32)track) << 22);
++}
++
++/**
++ * Extract a TileIndex from a SignalReference.
++ * @param key The signal reference to extract a TileIndex from
++ * @return The TileIndex component of the given signal reference
++ */
++inline TileIndex GetTileFromSignalReference(SignalReference key)
++{
++	return GB(key, 0, 22);
++}
++
++/**
++ * Extract a Track from a SignalReference.
++ * @param key The signal reference to extract a Track from
++ * @return The Track component of the given signal reference
++ */
++inline Track GetTrackFromSignalReference(SignalReference key)
++{
++	return (Track)(key >> 22);
++}
++
++/**
++ * An internal helper function used in searching for a signal program.
++ * @param tile The tile to search for
++ * @param track The track to search for
++ * @return The corresponding signal program, or NULL if not found.
++ */
++static inline SignalProgram * DoFindSignalProgram(TileIndex tile, Track track)
++{
++	SignalProgramList::iterator it = _signal_program_list.find(GetSignalReference(tile, track));
++
++	if (it != _signal_program_list.end()) {
++		return it->second;
++	} else {
++		return NULL;
++	}
++}
++
++/**
++ * Find a link from a signal at the given tile/track.
++ * @param tile The tile to search for.
++ * @param track The track to search for.
++ * @return The corresponding target where the link points to, if found, otherwise NULL.
++ * @bug This code returns NULL (0) as a not-found value, but that is also valid for the first Tile/Track
++ */
++static inline SignalReference FindSignalLink(TileIndex tile, Track track)
++{
++	SignalLinkList::iterator it = _signal_link_list.find(GetSignalReference(tile, track));
++
++	if (it != _signal_link_list.end()) {
++		return it->second;
++	} else {
++		return NULL;
++	}
++}
++
++/**
++ * Used to find a signal program at the given tile and track.
++ * @param tile The tile to search for.
++ * @param track The track to search for.
++ * @return The signal program if found, or NULL.
++ */
++SignalProgram * FindSignalProgram(TileIndex tile, Track track)
++{
++	SignalProgram *program = DoFindSignalProgram(tile, track);
++	assert(program != NULL);
++	return program;
++}
++
++/**
++ * Remove a signal link at the given tile and track, if it is found.
++ * It is perfectly valid to call this function even if the said tile/track has no outgoing link.
++ *
++ * @param tile The tile to search for
++ * @param track The track to search for
++ */
++void RemoveSignalLink(TileIndex tile, Track track)
++{
++	SignalReference existing = FindSignalLink(tile, track);
++
++	if (existing != NULL) {
++		SignalProgram *old_prog = FindSignalProgram(GetTileFromSignalReference(existing), GetTrackFromSignalReference(existing));
++
++		DEBUG(misc, 1, "Delete signal link from 0x%X to 0x%X", tile, GetTileFromSignalReference(existing));
++
++		/* Remove from signal program */
++		old_prog->RemoveLink(tile, track);
++
++		/* Remove from global list */
++		_signal_link_list.erase(GetSignalReference(tile, track));
++
++		/* Invalidate any windows which have this program open */
++		InvalidateWindowData(WC_SIGNAL_PROGRAM, existing);
++	}
++}
++
++/**
++ * Create a new signal program at the given tile and track.
++ * Used when a new logic signal is created.
++ * @param tile The tile of the logic signal
++ * @param track The track of the logic signal
++ * @return The newly created signal program
++ */
++SignalProgram * CreateSignalProgram(TileIndex tile, Track track)
++{
++	DEBUG(misc, 1, "Create logic signal at 0x%X", tile);
++
++	/* Existing program for same tile/track would be a bug */
++	assert(DoFindSignalProgram(tile, track) == NULL);
++
++	SignalProgram *program = new SignalProgram(tile, track);
++	_signal_program_list[GetSignalReference(tile, track)] = program;
++	return program;
++}
++
++/**
++ * Delete a signal program at the given tile and track.
++ * @param tile The tile of the logic signal
++ * @param track The track of the logic signal
++ */
++void DeleteSignalProgram(TileIndex tile, Track track)
++{
++	DEBUG(misc, 1, "Delete logic signal at 0x%X", tile);
++
++	SignalReference key = GetSignalReference(tile, track);
++
++	/* Delete any windows which have this program open */
++	DeleteWindowById(WC_SIGNAL_PROGRAM, key, false);
++
++	/* Remove the actual program and all links attached to it */
++	SignalProgram *program = FindSignalProgram(tile, track);
++	_signal_program_list.erase(key);
++	program->ClearAllLinks();
++	delete program;
++}
++
++/**
++ * Used to create or delete signal programs at the given tile when the signal type changes.
++ * @param tile The tile where the change occured.
++ * @param track The track where the change occured.
++ * @param old_type The old type of the changed signal
++ * @param new_type The new type of the changed signal
++ */
++inline void SignalTypeChanged(TileIndex tile, Track track, SignalType old_type, SignalType new_type)
++{
++	if (old_type == SIGTYPE_LOGIC) DeleteSignalProgram(tile, track);
++	if (new_type == SIGTYPE_LOGIC) CreateSignalProgram(tile, track);
++}
++
++/**
++ * Executed whenever signal state has changed by the main program.
++ * @param tile Tile where the change occured
++ * @param track Track where the change occured
++ * @param depth Recursion depth, starts at 1.
++ */
++inline void SignalStateChanged(TileIndex tile, Track track, int depth)
++{
++	SignalReference link = FindSignalLink(tile, track);
++	if (link != NULL) {
++		SignalProgram *program = FindSignalProgram(GetTileFromSignalReference(link), GetTrackFromSignalReference(link));
++		program->InputChanged(depth);
++	}
++}
++
++/**
++ * Check if this signal link would create a loop.
++ * @param from_tile
++ * @param from_track
++ * @param to_tile
++ * @param to_track
++ */
++bool SignalLinkCreatesLoop(TileIndex from_tile, Track from_track, TileIndex to_tile, Track to_track, int depth)
++{
++	/* avoid infinite loop in case something is broken or previous savegames had looping links */
++	if (depth > 50) {
++		DEBUG(misc, 0, "Check for looping signal links has more than 50 iterations");
++		return true;
++	}
++
++	SignalReference new_source = GetSignalReference(from_tile, from_track);
++	SignalReference old_target = FindSignalLink(to_tile, to_track);
++
++	if (old_target == NULL) {
++		return false;
++	} else if (new_source == old_target) {
++		return true;
++	} else {
++		return SignalLinkCreatesLoop(from_tile, from_track, GetTileFromSignalReference(old_target), GetTrackFromSignalReference(old_target), depth + 1);
++	}
++}
+diff --git a/src/logic_signals.h b/src/logic_signals.h
+new file mode 100644
+index 000000000..d2e6e1d37
+--- /dev/null
++++ b/src/logic_signals.h
+@@ -0,0 +1,100 @@
++/*
++ * This file is part of OpenTTD.
++ * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
++ * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++ /** @file logic_signals.h Header file for the Logic Signals patch. */
++
++#ifndef LOGIC_SIGNALS_H
++#define LOGIC_SIGNALS_H
++
++#include "stdafx.h"
++#include "core/smallvec_type.hpp"
++#include "tile_type.h"
++#include "track_type.h"
++#include "signal_type.h"
++#include <map>
++
++/**
++ * Operators which logic signals can use when evaluating inputs.
++ */
++enum SignalOperator {
++	SIGNAL_OP_OR,
++	SIGNAL_OP_AND,
++	SIGNAL_OP_NOT,
++	SIGNAL_OP_XOR,
++	SIGNAL_OP_END
++};
++/** Helper for saveload stuff. */
++template <> struct EnumPropsT<SignalOperator> : MakeEnumPropsT<SignalOperator, byte, SIGNAL_OP_OR, SIGNAL_OP_END, SIGNAL_OP_END, 2> {};
++typedef TinyEnumT<SignalOperator> SignalOperatorByte;
++
++/**
++ * The definition of a signal program reference.
++ *
++ * The first 22 bits (0 to 21) is the TileIndex and 3 bits 22 to 24 is the Track.
++ * This will stop working if maps larger than 2048 x 2048 are used.
++ */
++typedef uint32 SignalReference;
++
++/**
++ * A simple container used to store multiple signal references.
++ */
++typedef SmallVector<SignalReference, 4> SignalReferenceList;
++
++/**
++ * The main class of a signal program.
++ */
++class SignalProgram {
++private:
++	SignalReferenceList linked_signals;
++
++public:
++	TileIndex tile;
++	TrackByte track;
++
++	SignalStateByte own_default_state;
++	SignalStateByte trigger_state;
++	SignalOperatorByte signal_op;
++
++	bool blocked_by_train;
++
++	SignalProgram();
++	SignalProgram(TileIndex t, Track tr);
++	void AddLink(TileIndex tile, Track track, bool remove_first);
++	void RemoveLink(TileIndex tile, Track track);
++	void ClearAllLinks();
++	uint LinkCount();
++	void InputChanged(int depth);
++	SignalState Evaluate();
++	void PrintStateToDebug();
++};
++
++// Global variables
++typedef std::map<SignalReference, SignalProgram*> SignalProgramList;
++typedef std::map<SignalReference, SignalReference> SignalLinkList;
++extern SignalProgramList _signal_program_list;
++extern SignalLinkList _signal_link_list;
++
++// Global functions in logic_signals.cpp
++extern void FreeAllSignalPrograms();
++extern inline SignalState DetermineSignalState(TileIndex tile, Track track);
++extern inline void SetSignalStateForTrack(TileIndex tile, Track track, SignalState state);
++extern inline Track SignalTrackFromTile(TileIndex tile);
++extern inline SignalReference GetSignalReference(TileIndex tile, Track track);
++extern inline TileIndex GetTileFromSignalReference(SignalReference key);
++extern inline Track GetTrackFromSignalReference(SignalReference key);
++extern SignalProgram * FindSignalProgram(TileIndex tile, Track track);
++extern void RemoveSignalLink(TileIndex tile, Track track);
++extern SignalProgram * CreateSignalProgram(TileIndex tile, Track track);
++extern void DeleteSignalProgram(TileIndex tile, Track track);
++extern inline void SignalTypeChanged(TileIndex tile, Track track, SignalType old_type, SignalType new_type);
++extern inline void SignalStateChanged(TileIndex tile, Track track, int depth);
++extern bool SignalLinkCreatesLoop(TileIndex from_tile, Track from_track, TileIndex to_tile, Track to_track, int depth);
++
++// Global functions in logic_signals_gui.cpp
++extern void ShowSignalProgramWindow(SignalProgram *program);
++
++#endif /* LOGIC_SIGNALS_H */
+diff --git a/src/logic_signals_cmd.cpp b/src/logic_signals_cmd.cpp
+new file mode 100644
+index 000000000..89e82c435
+--- /dev/null
++++ b/src/logic_signals_cmd.cpp
+@@ -0,0 +1,85 @@
++/*
++ * This file is part of OpenTTD.
++ * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
++ * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++ /** @file logic_signals_cmd.cpp Commands for modifying logic signal programs. */
++
++#include "logic_signals.h"
++#include "core/bitmath_func.hpp"
++#include "window_func.h"
++#include "command_func.h"
++#include "rail_map.h"
++#include "table/strings.h"
++#include "company_func.h"
++
++/**
++ * The main command for editing a signal program.
++ * @param tile The tile which contains the edited signal.
++ * @param flags Internal command handler stuff.
++ * @param p1 Bitstuffed items
++ * - p1 = (bit 0-2) - The Track part of the signal program tile.
++ * - p1 = (bit 3-5) - Subcommand to execute.
++ * - p1 = (bit 6-7) - The value to set to the signal program.
++ * @param p2 Target SignalReference for linking of two signals
++ * @return the cost of this operation (which is free), or an error
++ */
++CommandCost CmdProgramLogicSignal(TileIndex tile, DoCommandFlag flags, uint32 p1, uint32 p2, const char *text)
++{
++	Track  track = (Track)GB(p1, 0, 3);
++	uint32 sub_cmd = GB(p1, 3, 3);
++	uint32 value = GB(p1, 6, 2);
++
++	/* Start by checking tile ownership */
++	CommandCost ret = CheckTileOwnership(tile);
++	if (ret.Failed()) return ret;
++
++	SignalProgram *program = FindSignalProgram(tile, track);
++
++	if (sub_cmd == 1) {
++		if (flags & DC_EXEC) {
++			program->own_default_state = (SignalState)value;
++		}
++	} else if (sub_cmd == 2) {
++		if (flags & DC_EXEC) {
++			program->trigger_state = (SignalState)value;
++		}
++	} else if (sub_cmd == 3) {
++		if (flags & DC_EXEC) {
++			program->signal_op = (SignalOperator)value;
++		}
++	} else if (sub_cmd == 4) {
++		TileIndex target_tile = p2;
++		Track target_track = SignalTrackFromTile(target_tile);
++
++		if (tile == target_tile && track == target_track) {
++			return_cmd_error(STR_ERROR_LINK_SIGNAL_TO_ITSELF);
++		} else if (!IsPlainRailTile(target_tile) || !HasSignalOnTrack(target_tile, target_track)) {
++			return_cmd_error(STR_ERROR_LINK_SIGNAL_NO_SIGNAL);
++		} else if (CheckTileOwnership(target_tile).Failed()) {
++			return_cmd_error(STR_ERROR_OWNED_BY);
++		} else if (SignalLinkCreatesLoop(target_tile, target_track, tile, track, 1)) {
++			return_cmd_error(STR_ERROR_LINK_SIGNAL_LOOP);
++		}
++
++		if (flags & DC_EXEC) {
++			program->AddLink(target_tile, target_track, true);
++		}
++	} else if (sub_cmd == 5) {
++		if (flags & DC_EXEC)
++			program->ClearAllLinks();
++	}
++
++	if (flags & DC_EXEC) {
++		/* Invalidate any open windows if something was changed */
++		InvalidateWindowData(WC_SIGNAL_PROGRAM, GetSignalReference(tile, track));
++
++		/* Re-evaluate the signal state too */
++		program->InputChanged(1);
++	}
++
++	/* No cost, this fun is free :) */
++	return CommandCost();
++}
+diff --git a/src/logic_signals_gui.cpp b/src/logic_signals_gui.cpp
+new file mode 100644
+index 000000000..7b76e6afb
+--- /dev/null
++++ b/src/logic_signals_gui.cpp
+@@ -0,0 +1,262 @@
++/*
++ * This file is part of OpenTTD.
++ * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
++ * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++ /** @file logic_signals_gui.cpp A Window for editing signal programs. */
++
++#include "logic_signals.h"
++#include "window_type.h"
++#include "window_gui.h"
++#include "table/strings.h"
++#include "command_func.h"
++#include "tilehighlight_func.h"
++#include "table/sprites.h"
++#include "rail_map.h"
++#include "string_func.h"
++#include "strings_func.h"
++
++/**
++ * Definition of widgets
++ */
++enum ProgramSignalWidgets {
++	WID_PROGSIG_CAPTION,
++	WID_PROGSIG_OWN_DEFAULT_COLOR_RED,
++	WID_PROGSIG_OWN_DEFAULT_COLOR_GREEN,
++	WID_PROGSIG_TRIGGER_COLOR_RED,
++	WID_PROGSIG_TRIGGER_COLOR_GREEN,
++	WID_PROGSIG_OPERATOR_OR,
++	WID_PROGSIG_OPERATOR_AND,
++	WID_PROGSIG_OPERATOR_NOT,
++	WID_PROGSIG_OPERATOR_XOR,
++	WID_PROGSIG_LINK_COUNT,
++	WID_PROGSIG_ADD_LINK,
++	WID_PROGSIG_CLEAR_LINKS
++};
++
++/**
++ * The Window used for editing signal programs of logic signals.
++ */
++struct SignalProgramWindow : Window
++{
++	SignalProgram *program;
++	bool add_link_button;
++	char tileName[16];
++
++	/**
++	 * Constructor
++	 */
++	SignalProgramWindow(WindowDesc *desc, WindowNumber window_number, SignalProgram *prog) : Window(desc)
++	{
++		this->program = prog;
++		this->add_link_button = false;
++		seprintf(this->tileName, lastof(this->tileName), "%X", this->program->tile);
++		this->InitNested(window_number);
++		this->OnInvalidateData();
++	}
++
++	/**
++	 * Handler which is executed whenever user clicks on the window.
++	 */
++	virtual void OnClick(Point pt, int widget, int click_count)
++	{
++		uint32 p1 = 0, p2 = 0;
++		bool changed = false;
++
++		SB(p1, 0, 3, program->track);
++
++		switch (widget) {
++		case WID_PROGSIG_OWN_DEFAULT_COLOR_RED:
++			if (this->program->own_default_state != SIGNAL_STATE_RED) {
++				SB(p1, 3, 3, 1);
++				SB(p1, 6, 2, SIGNAL_STATE_RED);
++				changed = true;
++			}
++			break;
++		case WID_PROGSIG_OWN_DEFAULT_COLOR_GREEN:
++			if (this->program->own_default_state != SIGNAL_STATE_GREEN) {
++				SB(p1, 3, 3, 1);
++				SB(p1, 6, 2, SIGNAL_STATE_GREEN);
++				changed = true;
++			}
++			break;
++		case WID_PROGSIG_TRIGGER_COLOR_RED:
++			if (this->program->trigger_state != SIGNAL_STATE_RED) {
++				SB(p1, 3, 3, 2);
++				SB(p1, 6, 2, SIGNAL_STATE_RED);
++				changed = true;
++			}
++			break;
++		case WID_PROGSIG_TRIGGER_COLOR_GREEN:
++			if (this->program->trigger_state != SIGNAL_STATE_GREEN) {
++				SB(p1, 3, 3, 2);
++				SB(p1, 6, 2, SIGNAL_STATE_GREEN);
++				changed = true;
++			}
++			break;
++		case WID_PROGSIG_OPERATOR_OR:
++			if (this->program->signal_op != SIGNAL_OP_OR) {
++				SB(p1, 3, 3, 3);
++				SB(p1, 6, 2, SIGNAL_OP_OR);
++				changed = true;
++			}
++			break;
++		case WID_PROGSIG_OPERATOR_AND:
++			if (this->program->signal_op != SIGNAL_OP_AND) {
++				SB(p1, 3, 3, 3);
++				SB(p1, 6, 2, SIGNAL_OP_AND);
++				changed = true;
++			}
++			break;
++		case WID_PROGSIG_OPERATOR_NOT:
++			if (this->program->signal_op != SIGNAL_OP_NOT) {
++				SB(p1, 3, 3, 3);
++				SB(p1, 6, 2, SIGNAL_OP_NOT);
++				changed = true;
++			}
++			break;
++		case WID_PROGSIG_OPERATOR_XOR:
++			if (this->program->signal_op != SIGNAL_OP_XOR) {
++				SB(p1, 3, 3, 3);
++				SB(p1, 6, 2, SIGNAL_OP_XOR);
++				changed = true;
++			}
++			break;
++		case WID_PROGSIG_ADD_LINK:
++			SetWidgetDirty(WID_PROGSIG_ADD_LINK);
++			ToggleWidgetLoweredState(WID_PROGSIG_ADD_LINK);
++			if (IsWidgetLowered(WID_PROGSIG_ADD_LINK)) {
++				SetObjectToPlaceWnd(SPR_CURSOR_TRANSMITTER, PAL_NONE, HT_RECT, this);
++			} else {
++				ResetObjectToPlace();
++			}
++			break;
++		case WID_PROGSIG_CLEAR_LINKS:
++			if (this->program->LinkCount() > 0) {
++				SB(p1, 3, 2, 5);
++				changed = true;
++			}
++			break;
++		}
++
++		if (changed) DoCommandP(program->tile, p1, p2, CMD_PROGRAM_LOGIC_SIGNAL | CMD_MSG(STR_ERROR_PROGRAM_SIGNAL_HEADER));
++	}
++
++	/**
++	 * Handler which is executed whenever data has become invalid on the window.
++	 */
++	virtual void OnInvalidateData(int data = 0, bool gui_scope = true)
++	{
++		if (!gui_scope) return;
++
++		this->SetWidgetLoweredState(WID_PROGSIG_OWN_DEFAULT_COLOR_RED, this->program->own_default_state == SIGNAL_STATE_RED);
++		this->SetWidgetLoweredState(WID_PROGSIG_OWN_DEFAULT_COLOR_GREEN, this->program->own_default_state == SIGNAL_STATE_GREEN);
++		this->SetWidgetLoweredState(WID_PROGSIG_TRIGGER_COLOR_RED, this->program->trigger_state == SIGNAL_STATE_RED);
++		this->SetWidgetLoweredState(WID_PROGSIG_TRIGGER_COLOR_GREEN, this->program->trigger_state == SIGNAL_STATE_GREEN);
++		this->SetWidgetLoweredState(WID_PROGSIG_OPERATOR_OR, this->program->signal_op == SIGNAL_OP_OR);
++		this->SetWidgetLoweredState(WID_PROGSIG_OPERATOR_AND, this->program->signal_op == SIGNAL_OP_AND);
++		this->SetWidgetLoweredState(WID_PROGSIG_OPERATOR_NOT, this->program->signal_op == SIGNAL_OP_NOT);
++		this->SetWidgetLoweredState(WID_PROGSIG_OPERATOR_XOR, this->program->signal_op == SIGNAL_OP_XOR);
++	}
++
++	/**
++	 * Used to set dynamic string parameters to the widget.
++	 */
++	virtual void SetStringParameters(int widget) const
++	{
++		switch (widget) {
++		case WID_PROGSIG_LINK_COUNT:
++			SetDParam(0, program->LinkCount());
++			break;
++		case WID_PROGSIG_CAPTION:
++			SetDParamStr(0, this->tileName);
++			break;
++		}
++	}
++
++	/**
++	 * Executed whenever user tries to link two signals together
++	 */
++	virtual void OnPlaceObject(Point pt, TileIndex tile)
++	{
++		uint32 p1 = 0;
++
++		SB(p1, 0, 3, this->program->track);
++		SB(p1, 3, 3, 4);
++
++		DoCommandP(this->program->tile, p1, tile, CMD_PROGRAM_LOGIC_SIGNAL | CMD_MSG(STR_ERROR_LINK_SIGNAL_HEADER));
++	}
++
++	/**
++	 * Executed when user aborts the linking of signals
++	 */
++	virtual void OnPlaceObjectAbort()
++	{
++		SetWidgetLoweredState(WID_PROGSIG_ADD_LINK, false);
++		SetWidgetDirty(WID_PROGSIG_ADD_LINK);
++	}
++};
++
++/**
++ * Widget structure definition for programmable signals
++ */
++static const NWidgetPart _nested_program_widgets[] = {
++	NWidget(NWID_HORIZONTAL),
++		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
++		NWidget(WWT_CAPTION, COLOUR_GREY, WID_PROGSIG_CAPTION), SetDataTip(STR_PROGSIG_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
++		NWidget(WWT_SHADEBOX, COLOUR_GREY),
++		NWidget(WWT_DEFSIZEBOX, COLOUR_GREY),
++		NWidget(WWT_STICKYBOX, COLOUR_GREY),
++	EndContainer(),
++	NWidget(WWT_PANEL, COLOUR_GREY),
++		NWidget(NWID_HORIZONTAL), SetPIP(3, 0, 0),
++				NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(240, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_OWN_DEFAULT_COLOR, STR_PROGSIG_OWN_DEFAULT_COLOR_TOOLTIP),
++				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_PROGSIG_OWN_DEFAULT_COLOR_RED), SetMinimalSize(80, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_COLOR_RED, STR_PROGSIG_OWN_DEFAULT_COLOR_TOOLTIP),
++				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_PROGSIG_OWN_DEFAULT_COLOR_GREEN), SetMinimalSize(80, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_COLOR_GREEN, STR_PROGSIG_OWN_DEFAULT_COLOR_TOOLTIP),
++		EndContainer(),
++		NWidget(NWID_HORIZONTAL), SetPIP(3, 0, 0),
++				NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(240, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_TRIGGER_COLOR, STR_PROGSIG_TRIGGER_COLOR_TOOLTIP),
++				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_PROGSIG_TRIGGER_COLOR_RED), SetMinimalSize(80, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_COLOR_RED, STR_PROGSIG_TRIGGER_COLOR_TOOLTIP),
++				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_PROGSIG_TRIGGER_COLOR_GREEN), SetMinimalSize(80, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_COLOR_GREEN, STR_PROGSIG_TRIGGER_COLOR_TOOLTIP),
++		EndContainer(),
++		NWidget(NWID_HORIZONTAL), SetPIP(3, 0, 0),
++				NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(240, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_OPERATOR, STR_PROGSIG_OPERATOR_TOOLTIP),
++				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_PROGSIG_OPERATOR_OR), SetMinimalSize(40, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_OP_OR, STR_PROGSIG_OPERATOR_TOOLTIP),
++				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_PROGSIG_OPERATOR_AND), SetMinimalSize(40, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_OP_AND, STR_PROGSIG_OPERATOR_TOOLTIP),
++				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_PROGSIG_OPERATOR_XOR), SetMinimalSize(40, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_OP_XOR, STR_PROGSIG_OPERATOR_TOOLTIP),
++				NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_PROGSIG_OPERATOR_NOT), SetMinimalSize(40, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_OP_NOT, STR_PROGSIG_OPERATOR_TOOLTIP),
++		EndContainer(),
++		NWidget(NWID_HORIZONTAL), SetPIP(3, 0, 0),
++				NWidget(WWT_TEXT, COLOUR_GREY), SetMinimalSize(240, 14), SetFill(1, 0), SetDataTip(STR_PROGSIG_LINKED_SIGNALS, STR_PROGSIG_LINKED_SIGNALS_TOOLTIP),
++				NWidget(WWT_TEXT, COLOUR_ORANGE, WID_PROGSIG_LINK_COUNT), SetMinimalSize(160, 14), SetFill(1, 0), SetDataTip(STR_JUST_INT, STR_PROGSIG_LINKED_SIGNALS_TOOLTIP),
++		EndContainer(),
++	EndContainer(),
++	NWidget(NWID_HORIZONTAL, NC_EQUALSIZE),
++		NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_PROGSIG_ADD_LINK), SetFill(1, 0), SetDataTip(STR_PROGSIG_ADD_LINK, STR_PROGSIG_ADD_LINK_TOOLTIP),
++		NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_PROGSIG_CLEAR_LINKS), SetFill(1, 0), SetDataTip(STR_PROGSIG_CLEAR_LINKS, STR_PROGSIG_CLEAR_LINKS_TOOLTIP),
++	EndContainer(),
++};
++
++static WindowDesc _signal_program_desc(
++	WDP_AUTO, NULL, 0, 0,
++	WC_SIGNAL_PROGRAM, WC_NONE,
++	WDF_CONSTRUCTION,
++	_nested_program_widgets, lengthof(_nested_program_widgets)
++);
++
++/**
++ * Displays a signal program window.
++ * @param program The target signal program which this window modifies.
++ */
++void ShowSignalProgramWindow(SignalProgram *program)
++{
++	program->PrintStateToDebug();
++
++	WindowNumber wnum = GetSignalReference(program->tile, program->track);
++
++	if (BringWindowToFrontById(WC_SIGNAL_PROGRAM, wnum) != NULL) return;
++
++	new SignalProgramWindow(&_signal_program_desc, wnum, program);
++}
+diff --git a/src/misc.cpp b/src/misc.cpp
+index 8151f2dd3..a0e7a2215 100644
+--- a/src/misc.cpp
++++ b/src/misc.cpp
+@@ -28,6 +28,7 @@
+ #include "core/pool_type.hpp"
+ #include "game/game.hpp"
+ #include "linkgraph/linkgraphschedule.h"
++#include "logic_signals.h"
+ 
+ #include "safeguards.h"
+ 
+@@ -96,6 +97,8 @@ void InitializeGame(uint size_x, uint size_y, bool reset_date, bool reset_settin
+ 	InitializeObjects();
+ 	InitializeBuildingCounts();
+ 
++	FreeAllSignalPrograms();
++
+ 	InitializeNPF();
+ 
+ 	InitializeCompanies();
+diff --git a/src/pathfinder/yapf/yapf_costrail.hpp b/src/pathfinder/yapf/yapf_costrail.hpp
+index 022b9a167..7a399b065 100644
+--- a/src/pathfinder/yapf/yapf_costrail.hpp
++++ b/src/pathfinder/yapf/yapf_costrail.hpp
+@@ -226,7 +226,8 @@ public:
+ 						if (n.m_num_signals_passed == 0) {
+ 							switch (sig_type) {
+ 								case SIGTYPE_COMBO:
+-								case SIGTYPE_EXIT:   cost += Yapf().PfGetSettings().rail_firstred_exit_penalty; break; // first signal is red pre-signal-exit
++								case SIGTYPE_EXIT:
++								case SIGTYPE_LOGIC:  cost += Yapf().PfGetSettings().rail_firstred_exit_penalty; break; // first signal is red pre-signal-exit
+ 								case SIGTYPE_NORMAL:
+ 								case SIGTYPE_ENTRY:  cost += Yapf().PfGetSettings().rail_firstred_penalty; break;
+ 								default: break;
+diff --git a/src/rail_cmd.cpp b/src/rail_cmd.cpp
+index 3230d9bf2..a37682fa8 100644
+--- a/src/rail_cmd.cpp
++++ b/src/rail_cmd.cpp
+@@ -33,6 +33,7 @@
+ #include "strings_func.h"
+ #include "company_gui.h"
+ #include "object_map.h"
++#include "logic_signals.h"
+ 
+ #include "table/strings.h"
+ #include "table/railtypes.h"
+@@ -106,12 +107,15 @@ void ResolveRailTypeGUISprites(RailtypeInfo *rti)
+ 	}
+ 
+ 	/* Array of default GUI signal sprite numbers. */
++	/* Logic signals don't have their own sprites yet, lets use one-way pbs sprites for now */
+ 	const SpriteID _signal_lookup[2][SIGTYPE_END] = {
+ 		{SPR_IMG_SIGNAL_ELECTRIC_NORM,  SPR_IMG_SIGNAL_ELECTRIC_ENTRY, SPR_IMG_SIGNAL_ELECTRIC_EXIT,
+-		 SPR_IMG_SIGNAL_ELECTRIC_COMBO, SPR_IMG_SIGNAL_ELECTRIC_PBS,   SPR_IMG_SIGNAL_ELECTRIC_PBS_OWAY},
++		 SPR_IMG_SIGNAL_ELECTRIC_COMBO, SPR_IMG_SIGNAL_ELECTRIC_PBS,   SPR_IMG_SIGNAL_ELECTRIC_PBS_OWAY,
++		 SPR_IMG_SIGNAL_ELECTRIC_PBS_OWAY},
+ 
+ 		{SPR_IMG_SIGNAL_SEMAPHORE_NORM,  SPR_IMG_SIGNAL_SEMAPHORE_ENTRY, SPR_IMG_SIGNAL_SEMAPHORE_EXIT,
+-		 SPR_IMG_SIGNAL_SEMAPHORE_COMBO, SPR_IMG_SIGNAL_SEMAPHORE_PBS,   SPR_IMG_SIGNAL_SEMAPHORE_PBS_OWAY},
++		 SPR_IMG_SIGNAL_SEMAPHORE_COMBO, SPR_IMG_SIGNAL_SEMAPHORE_PBS,   SPR_IMG_SIGNAL_SEMAPHORE_PBS_OWAY,
++		 SPR_IMG_SIGNAL_SEMAPHORE_PBS_OWAY},
+ 	};
+ 
+ 	for (SignalType type = SIGTYPE_NORMAL; type < SIGTYPE_END; type = (SignalType)(type + 1)) {
+@@ -1119,9 +1123,15 @@ CommandCost CmdBuildSingleSignal(TileIndex tile, DoCommandFlag flags, uint32 p1,
+ 		if (p2 == 0) {
+ 			if (!HasSignalOnTrack(tile, track)) {
+ 				/* build new signals */
+-				SetPresentSignals(tile, GetPresentSignals(tile) | (IsPbsSignal(sigtype) ? KillFirstBit(SignalOnTrack(track)) : SignalOnTrack(track)));
++				SetPresentSignals(tile, GetPresentSignals(tile) | (IsPbsOrLogicSignal(sigtype) ? KillFirstBit(SignalOnTrack(track)) : SignalOnTrack(track)));
+ 				SetSignalType(tile, track, sigtype);
+ 				SetSignalVariant(tile, track, sigvar);
++
++				/* logic signals: create a new signal program */
++				if (sigtype == SIGTYPE_LOGIC) {
++					CreateSignalProgram(tile, track);
++				}
++
+ 				while (num_dir_cycle-- > 0) CycleSignalSide(tile, track);
+ 			} else {
+ 				if (convert_signal) {
+@@ -1133,9 +1143,13 @@ CommandCost CmdBuildSingleSignal(TileIndex tile, DoCommandFlag flags, uint32 p1,
+ 						sigtype = GetSignalType(tile, track);
+ 					} else {
+ 						/* convert the present signal to the chosen type and variant */
++
++						/* logic signals: create or delete signal program as necessary */
++						SignalTypeChanged(tile, track, GetSignalType(tile, track), sigtype);
++
+ 						SetSignalType(tile, track, sigtype);
+ 						SetSignalVariant(tile, track, sigvar);
+-						if (IsPbsSignal(sigtype) && (GetPresentSignals(tile) & SignalOnTrack(track)) == SignalOnTrack(track)) {
++						if (IsPbsOrLogicSignal(sigtype) && (GetPresentSignals(tile) & SignalOnTrack(track)) == SignalOnTrack(track)) {
+ 							SetPresentSignals(tile, (GetPresentSignals(tile) & ~SignalOnTrack(track)) | KillFirstBit(SignalOnTrack(track)));
+ 						}
+ 					}
+@@ -1146,8 +1160,11 @@ CommandCost CmdBuildSingleSignal(TileIndex tile, DoCommandFlag flags, uint32 p1,
+ 
+ 					if (sigtype < cycle_start || sigtype > cycle_stop) sigtype = cycle_start;
+ 
++					/* logic signals: create or delete signal program as necessary */
++					SignalTypeChanged(tile, track, GetSignalType(tile, track), sigtype);
++
+ 					SetSignalType(tile, track, sigtype);
+-					if (IsPbsSignal(sigtype) && (GetPresentSignals(tile) & SignalOnTrack(track)) == SignalOnTrack(track)) {
++					if (IsPbsOrLogicSignal(sigtype) && (GetPresentSignals(tile) & SignalOnTrack(track)) == SignalOnTrack(track)) {
+ 						SetPresentSignals(tile, (GetPresentSignals(tile) & ~SignalOnTrack(track)) | KillFirstBit(SignalOnTrack(track)));
+ 					}
+ 				} else {
+@@ -1483,6 +1500,14 @@ CommandCost CmdRemoveSingleSignal(TileIndex tile, DoCommandFlag flags, uint32 p1
+ 				}
+ 			}
+ 		}
++
++		/* Remove any links this signal had */
++		RemoveSignalLink(tile, track);
++		/* Logic signal: remove signal program */
++		if (IsLogicSignal(tile, track)) {
++			DeleteSignalProgram(tile, track);
++		}
++
+ 		Company::Get(GetTileOwner(tile))->infrastructure.signal -= CountBits(GetPresentSignals(tile));
+ 		SetPresentSignals(tile, GetPresentSignals(tile) & ~SignalOnTrack(track));
+ 		Company::Get(GetTileOwner(tile))->infrastructure.signal += CountBits(GetPresentSignals(tile));
+@@ -1898,6 +1923,11 @@ static void DrawSingleSignal(TileIndex tile, const RailtypeInfo *rti, Track trac
+ 	if (sprite != 0) {
+ 		sprite += image;
+ 	} else {
++		/* Logic signal does not have its own sprite yet, so lets use one-way pbs */
++		if (type == SIGTYPE_LOGIC) {
++			type = SIGTYPE_PBS_ONEWAY;
++		}
++
+ 		/* Normal electric signals are stored in a different sprite block than all other signals. */
+ 		sprite = (type == SIGTYPE_NORMAL && variant == SIG_ELECTRIC) ? SPR_ORIGINAL_SIGNALS_BASE : SPR_SIGNALS_BASE - 16;
+ 		sprite += type * 16 + variant * 64 + image * 2 + condition + (type > SIGTYPE_LAST_NOPBS ? 64 : 0);
+@@ -2769,14 +2799,15 @@ static void GetTileDesc_Track(TileIndex tile, TileDesc *td)
+ 			break;
+ 
+ 		case RAIL_TILE_SIGNALS: {
+-			static const StringID signal_type[6][6] = {
++			static const StringID signal_type[SIGTYPE_END][SIGTYPE_END] = {
+ 				{
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_SIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_PRESIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_EXITSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_COMBOSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_PBSSIGNALS,
+-					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_NOENTRYSIGNALS
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_NOENTRYSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_LOGICSIGNALS
+ 				},
+ 				{
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_PRESIGNALS,
+@@ -2784,7 +2815,8 @@ static void GetTileDesc_Track(TileIndex tile, TileDesc *td)
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_EXITSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_COMBOSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_PBSSIGNALS,
+-					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_NOENTRYSIGNALS
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_NOENTRYSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_LOGICSIGNALS
+ 				},
+ 				{
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_EXITSIGNALS,
+@@ -2792,7 +2824,8 @@ static void GetTileDesc_Track(TileIndex tile, TileDesc *td)
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXITSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_COMBOSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_PBSSIGNALS,
+-					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_NOENTRYSIGNALS
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_NOENTRYSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_LOGICSIGNALS
+ 				},
+ 				{
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_COMBOSIGNALS,
+@@ -2800,7 +2833,8 @@ static void GetTileDesc_Track(TileIndex tile, TileDesc *td)
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_COMBOSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBOSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_PBSSIGNALS,
+-					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_NOENTRYSIGNALS
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_NOENTRYSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_LOGICSIGNALS
+ 				},
+ 				{
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_PBSSIGNALS,
+@@ -2808,7 +2842,8 @@ static void GetTileDesc_Track(TileIndex tile, TileDesc *td)
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_PBSSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_PBSSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PBSSIGNALS,
+-					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PBS_NOENTRYSIGNALS
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PBS_NOENTRYSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PBS_LOGICSIGNALS
+ 				},
+ 				{
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_NOENTRYSIGNALS,
+@@ -2816,7 +2851,17 @@ static void GetTileDesc_Track(TileIndex tile, TileDesc *td)
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_NOENTRYSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_NOENTRYSIGNALS,
+ 					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PBS_NOENTRYSIGNALS,
+-					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NOENTRYSIGNALS
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NOENTRYSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NOENTRY_LOGICSIGNALS
++				},
++				{
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NORMAL_LOGICSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PRE_LOGICSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_EXIT_LOGICSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_COMBO_LOGICSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_PBS_LOGICSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_NOENTRY_LOGICSIGNALS,
++					STR_LAI_RAIL_DESCRIPTION_TRACK_WITH_LOGICSIGNALS
+ 				}
+ 			};
+ 
+diff --git a/src/rail_gui.cpp b/src/rail_gui.cpp
+index 234edbf22..e68addffb 100644
+--- a/src/rail_gui.cpp
++++ b/src/rail_gui.cpp
+@@ -34,6 +34,8 @@
+ #include "vehicle_func.h"
+ #include "zoom_func.h"
+ #include "rail_gui.h"
++#include "logic_signals.h"
++#include "error.h"
+ 
+ #include "station_map.h"
+ #include "tunnelbridge_map.h"
+@@ -588,6 +590,11 @@ struct BuildRailToolbarWindow : Window {
+ 				break;
+ 			}
+ 
++			case WID_RAT_PROGRAM_SIGNALS:
++				HandlePlacePushButton(this, WID_RAT_PROGRAM_SIGNALS, SPR_CURSOR_MOUSE, HT_RECT);
++				this->last_user_action = widget;
++				break;
++
+ 			case WID_RAT_BUILD_BRIDGE:
+ 				HandlePlacePushButton(this, WID_RAT_BUILD_BRIDGE, SPR_CURSOR_BRIDGE, HT_RECT);
+ 				this->last_user_action = widget;
+@@ -664,6 +671,19 @@ struct BuildRailToolbarWindow : Window {
+ 				VpStartPlaceSizing(tile, VPM_SIGNALDIRS, DDSP_BUILD_SIGNALS);
+ 				break;
+ 
++			case WID_RAT_PROGRAM_SIGNALS:
++				if (IsPlainRailTile(tile)) {
++					Track track = SignalTrackFromTile(tile);
++
++					if (HasSignalOnTrack(tile, track) && IsLogicSignal(tile, track)) {
++						ShowSignalProgramWindow(FindSignalProgram(tile, track));
++						ResetObjectToPlace();
++						return;
++					}
++				}
++				ShowErrorMessage(STR_ERROR_PROGRAM_NOT_LOGIC_SIGNAL, INVALID_STRING_ID, WL_ERROR);
++				break;
++
+ 			case WID_RAT_BUILD_BRIDGE:
+ 				PlaceRail_Bridge(tile, this);
+ 				break;
+@@ -836,6 +856,8 @@ static const NWidgetPart _nested_build_rail_widgets[] = {
+ 						SetFill(0, 1), SetMinimalSize(42, 22), SetDataTip(SPR_IMG_RAIL_STATION, STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_STATION),
+ 		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_RAT_BUILD_SIGNALS),
+ 						SetFill(0, 1), SetMinimalSize(22, 22), SetDataTip(SPR_IMG_RAIL_SIGNALS, STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_SIGNALS),
++		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_RAT_PROGRAM_SIGNALS),
++						SetFill(0, 1), SetMinimalSize(22, 22), SetDataTip(SPR_IMG_SETTINGS, STR_RAIL_TOOLBAR_TOOLTIP_PROGRAM_SIGNAL),
+ 		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_RAT_BUILD_BRIDGE),
+ 						SetFill(0, 1), SetMinimalSize(42, 22), SetDataTip(SPR_IMG_BRIDGE, STR_RAIL_TOOLBAR_TOOLTIP_BUILD_RAILROAD_BRIDGE),
+ 		NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_RAT_BUILD_TUNNEL),
+@@ -1563,7 +1585,7 @@ public:
+ 
+ 	virtual void DrawWidget(const Rect &r, int widget) const
+ 	{
+-		if (IsInsideMM(widget, WID_BS_SEMAPHORE_NORM, WID_BS_ELECTRIC_PBS_OWAY + 1)) {
++		if (IsInsideMM(widget, WID_BS_SEMAPHORE_NORM, WID_BS_ELECTRIC_LOGIC + 1)) {
+ 			/* Extract signal from widget number. */
+ 			int type = (widget - WID_BS_SEMAPHORE_NORM) % SIGTYPE_END;
+ 			int var = SIG_SEMAPHORE - (widget - WID_BS_SEMAPHORE_NORM) / SIGTYPE_END; // SignalVariant order is reversed compared to the widgets.
+@@ -1582,12 +1604,14 @@ public:
+ 			case WID_BS_SEMAPHORE_COMBO:
+ 			case WID_BS_SEMAPHORE_PBS:
+ 			case WID_BS_SEMAPHORE_PBS_OWAY:
++			case WID_BS_SEMAPHORE_LOGIC:
+ 			case WID_BS_ELECTRIC_NORM:
+ 			case WID_BS_ELECTRIC_ENTRY:
+ 			case WID_BS_ELECTRIC_EXIT:
+ 			case WID_BS_ELECTRIC_COMBO:
+ 			case WID_BS_ELECTRIC_PBS:
+ 			case WID_BS_ELECTRIC_PBS_OWAY:
++			case WID_BS_ELECTRIC_LOGIC:
+ 				this->RaiseWidget((_cur_signal_variant == SIG_ELECTRIC ? WID_BS_ELECTRIC_NORM : WID_BS_SEMAPHORE_NORM) + _cur_signal_type);
+ 
+ 				_cur_signal_type = (SignalType)((uint)((widget - WID_BS_SEMAPHORE_NORM) % (SIGTYPE_LAST + 1)));
+@@ -1656,6 +1680,7 @@ static const NWidgetPart _nested_signal_builder_widgets[] = {
+ 			NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_BS_SEMAPHORE_COMBO), SetDataTip(STR_NULL, STR_BUILD_SIGNAL_SEMAPHORE_COMBO_TOOLTIP), EndContainer(), SetFill(1, 1),
+ 			NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_BS_SEMAPHORE_PBS), SetDataTip(STR_NULL, STR_BUILD_SIGNAL_SEMAPHORE_PBS_TOOLTIP), EndContainer(), SetFill(1, 1),
+ 			NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_BS_SEMAPHORE_PBS_OWAY), SetDataTip(STR_NULL, STR_BUILD_SIGNAL_SEMAPHORE_PBS_OWAY_TOOLTIP), EndContainer(), SetFill(1, 1),
++			NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_BS_SEMAPHORE_LOGIC), SetDataTip(STR_NULL, STR_BUILD_SIGNAL_SEMAPHORE_LOGIC_TOOLTIP), EndContainer(), SetFill(1, 1),
+ 			NWidget(WWT_IMGBTN, COLOUR_DARK_GREEN, WID_BS_CONVERT), SetDataTip(SPR_IMG_SIGNAL_CONVERT, STR_BUILD_SIGNAL_CONVERT_TOOLTIP), SetFill(1, 1),
+ 		EndContainer(),
+ 		NWidget(NWID_HORIZONTAL, NC_EQUALSIZE),
+@@ -1665,6 +1690,7 @@ static const NWidgetPart _nested_signal_builder_widgets[] = {
+ 			NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_BS_ELECTRIC_COMBO), SetDataTip(STR_NULL, STR_BUILD_SIGNAL_ELECTRIC_COMBO_TOOLTIP), EndContainer(), SetFill(1, 1),
+ 			NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_BS_ELECTRIC_PBS), SetDataTip(STR_NULL, STR_BUILD_SIGNAL_ELECTRIC_PBS_TOOLTIP), EndContainer(), SetFill(1, 1),
+ 			NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_BS_ELECTRIC_PBS_OWAY), SetDataTip(STR_NULL, STR_BUILD_SIGNAL_ELECTRIC_PBS_OWAY_TOOLTIP), EndContainer(), SetFill(1, 1),
++			NWidget(WWT_PANEL, COLOUR_DARK_GREEN, WID_BS_ELECTRIC_LOGIC), SetDataTip(STR_NULL, STR_BUILD_SIGNAL_ELECTRIC_LOGIC_TOOLTIP), EndContainer(), SetFill(1, 1),
+ 			NWidget(WWT_PANEL, COLOUR_DARK_GREEN), SetDataTip(STR_NULL, STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_TOOLTIP), SetFill(1, 1),
+ 				NWidget(WWT_LABEL, COLOUR_DARK_GREEN, WID_BS_DRAG_SIGNALS_DENSITY_LABEL), SetDataTip(STR_ORANGE_INT, STR_BUILD_SIGNAL_DRAG_SIGNALS_DENSITY_TOOLTIP), SetFill(1, 1),
+ 				NWidget(NWID_HORIZONTAL), SetPIP(2, 0, 2),
+diff --git a/src/rail_map.h b/src/rail_map.h
+index 74afe5ace..f34a99588 100644
+--- a/src/rail_map.h
++++ b/src/rail_map.h
+@@ -291,6 +291,16 @@ static inline bool IsPbsSignal(SignalType s)
+ 	return s == SIGTYPE_PBS || s == SIGTYPE_PBS_ONEWAY;
+ }
+ 
++/**
++ * Tests if the given signal type is a PBS or a logic signal.
++ * @param s The signal type to test
++ * @return Returns true if the given signal type is a PBS or a logic signal
++ */
++static inline bool IsPbsOrLogicSignal(SignalType s)
++{
++	return IsPbsSignal(s) || s == SIGTYPE_LOGIC;
++}
++
+ static inline SignalType GetSignalType(TileIndex t, Track track)
+ {
+ 	assert(GetRailTileType(t) == RAIL_TILE_SIGNALS);
+@@ -316,6 +326,17 @@ static inline bool IsPresignalExit(TileIndex t, Track track)
+ 	return GetSignalType(t, track) == SIGTYPE_EXIT || GetSignalType(t, track) == SIGTYPE_COMBO;
+ }
+ 
++/**
++ * Tests whether the signal on the given tile and track is a logic signal.
++ * @param t The tile to test
++ * @param track The track to test
++ * @return Returns true if the signal on the given tile and track is a logic signal.
++ */
++static inline bool IsLogicSignal(TileIndex t, Track track)
++{
++	return GetSignalType(t, track) == SIGTYPE_LOGIC;
++}
++
+ /** One-way signals can't be passed the 'wrong' way. */
+ static inline bool IsOnewaySignal(TileIndex t, Track track)
+ {
+@@ -328,7 +349,7 @@ static inline void CycleSignalSide(TileIndex t, Track track)
+ 	byte pos = (track == TRACK_LOWER || track == TRACK_RIGHT) ? 4 : 6;
+ 
+ 	sig = GB(_m[t].m3, pos, 2);
+-	if (--sig == 0) sig = IsPbsSignal(GetSignalType(t, track)) ? 2 : 3;
++	if (--sig == 0) sig = IsPbsOrLogicSignal(GetSignalType(t, track)) ? 2 : 3;
+ 	SB(_m[t].m3, pos, 2, sig);
+ }
+ 
+diff --git a/src/saveload/logic_signals_sl.cpp b/src/saveload/logic_signals_sl.cpp
+new file mode 100644
+index 000000000..3be350315
+--- /dev/null
++++ b/src/saveload/logic_signals_sl.cpp
+@@ -0,0 +1,96 @@
++/*
++ * This file is part of OpenTTD.
++ * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
++ * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++ /** @file logic_signals_sl.cpp Implementation of saving and loading of signal programs. */
++
++#include "../logic_signals.h"
++#include "saveload.h"
++
++struct TempStorage {
++	SignalReference from;
++	SignalReference to;
++};
++
++static const SaveLoad _signal_program_desc[] = {
++	SLE_CONDVAR(SignalProgram, tile, SLE_UINT32, SLV_LOGIC_SIGNALS, SL_MAX_VERSION),
++	SLE_CONDVAR(SignalProgram, track, SLE_UINT8, SLV_LOGIC_SIGNALS, SL_MAX_VERSION),
++	SLE_CONDVAR(SignalProgram, own_default_state, SLE_UINT8, SLV_LOGIC_SIGNALS, SL_MAX_VERSION),
++	SLE_CONDVAR(SignalProgram, trigger_state, SLE_UINT8, SLV_LOGIC_SIGNALS, SL_MAX_VERSION),
++	SLE_CONDVAR(SignalProgram, signal_op, SLE_UINT8, SLV_LOGIC_SIGNALS, SL_MAX_VERSION),
++	SLE_CONDVAR(SignalProgram, blocked_by_train, SLE_UINT8, SLV_LOGIC_SIGNALS, SL_MAX_VERSION),
++	SLE_END()
++};
++
++static const SaveLoad _signal_link_desc[] = {
++	SLE_CONDVAR(TempStorage, from, SLE_UINT32, SLV_LOGIC_SIGNALS, SL_MAX_VERSION),
++	SLE_CONDVAR(TempStorage, to, SLE_UINT32, SLV_LOGIC_SIGNALS, SL_MAX_VERSION),
++	SLE_END()
++};
++
++/**
++ * Save signal programs.
++ */
++static void Save_SPRG()
++{
++	int index = 0;
++
++	for (SignalProgramList::iterator it = _signal_program_list.begin(); it != _signal_program_list.end(); it++) {
++		SlSetArrayIndex(index++);
++		SlObject(it->second, _signal_program_desc);
++	}
++}
++
++/**
++ * Load signal programs.
++ */
++static void Load_SPRG()
++{
++	int index;
++
++	while ((index = SlIterateArray()) != -1) {
++		SignalProgram *program = new SignalProgram();
++		SlObject(program, _signal_program_desc);
++		_signal_program_list[GetSignalReference(program->tile, program->track)] = program;
++	}
++}
++
++/**
++ * Save signal links.
++ */
++static void Save_SLNK()
++{
++	TempStorage storage;
++	int index = 0;
++
++	for (SignalLinkList::iterator it = _signal_link_list.begin(); it != _signal_link_list.end(); it++) {
++		SlSetArrayIndex(index++);
++		storage.from = it->first;
++		storage.to = it->second;
++		SlObject(&storage, _signal_link_desc);
++	}
++}
++
++/**
++ * Load signal links.
++ */
++static void Load_SLNK()
++{
++	TempStorage storage;
++	int index;
++
++	while ((index = SlIterateArray()) != -1) {
++		SlObject(&storage, _signal_link_desc);
++		_signal_link_list[storage.from] = storage.to;
++		SignalProgram *program = FindSignalProgram(GetTileFromSignalReference(storage.to), GetTrackFromSignalReference(storage.to));
++		program->AddLink(GetTileFromSignalReference(storage.from), GetTrackFromSignalReference(storage.from), false);
++	}
++}
++
++extern const ChunkHandler _logic_signal_handlers[] = {
++	{  'SPRG', Save_SPRG, Load_SPRG, NULL, NULL, CH_ARRAY },
++	{  'SLNK', Save_SLNK, Load_SLNK, NULL, NULL, CH_ARRAY | CH_LAST }
++};
+diff --git a/src/saveload/saveload.cpp b/src/saveload/saveload.cpp
+index bff85dfc6..6462e9193 100644
+--- a/src/saveload/saveload.cpp
++++ b/src/saveload/saveload.cpp
+@@ -238,6 +238,7 @@ extern const ChunkHandler _linkgraph_chunk_handlers[];
+ extern const ChunkHandler _airport_chunk_handlers[];
+ extern const ChunkHandler _object_chunk_handlers[];
+ extern const ChunkHandler _persistent_storage_chunk_handlers[];
++extern const ChunkHandler _logic_signal_handlers[];
+ 
+ /** Array of all chunks in a savegame, \c NULL terminated. */
+ static const ChunkHandler * const _chunk_handlers[] = {
+@@ -274,6 +275,7 @@ static const ChunkHandler * const _chunk_handlers[] = {
+ 	_airport_chunk_handlers,
+ 	_object_chunk_handlers,
+ 	_persistent_storage_chunk_handlers,
++	_logic_signal_handlers,
+ 	NULL,
+ };
+ 
+diff --git a/src/saveload/saveload.h b/src/saveload/saveload.h
+index 77cce4c4a..7c5d16f05 100644
+--- a/src/saveload/saveload.h
++++ b/src/saveload/saveload.h
+@@ -297,6 +297,8 @@ enum SaveLoadVersion : uint16 {
+ 	SLV_SERVE_NEUTRAL_INDUSTRIES,           ///< 210  PR#7234 Company stations can serve industries with attached neutral stations.
+ 	SLV_ROADVEH_PATH_CACHE,                 ///< 211  PR#7261 Add path cache for road vehicles.
+ 
++	SLV_LOGIC_SIGNALS,                      ///< 212  Logic Signals patch
++
+ 	SL_MAX_VERSION,                         ///< Highest possible saveload version
+ };
+ 
+diff --git a/src/signal.cpp b/src/signal.cpp
+index b37e15074..f7c0fc2ff 100644
+--- a/src/signal.cpp
++++ b/src/signal.cpp
+@@ -17,6 +17,7 @@
+ #include "viewport_func.h"
+ #include "train.h"
+ #include "company_base.h"
++#include "logic_signals.h"
+ 
+ #include "safeguards.h"
+ 
+@@ -418,23 +419,37 @@ static void UpdateSignalsAroundSegment(SigFlags flags)
+ 		SignalType sig = GetSignalType(tile, TrackdirToTrack(trackdir));
+ 		SignalState newstate = SIGNAL_STATE_GREEN;
+ 
+-		/* determine whether the new state is red */
+-		if (flags & SF_TRAIN) {
+-			/* train in the segment */
+-			newstate = SIGNAL_STATE_RED;
++		if (sig == SIGTYPE_LOGIC) {
++			SignalProgram * program = FindSignalProgram(tile, TrackdirToTrack(trackdir));
++
++			if (flags & SF_TRAIN) {
++				/* Blocked by a train */
++				newstate = SIGNAL_STATE_RED;
++				program->blocked_by_train = true;
++			} else {
++				/* Cleared by a train, we need to re-evaluate the state based on logic */
++				newstate = program->Evaluate();
++				program->blocked_by_train = false;
++			}
+ 		} else {
+-			/* is it a bidir combo? - then do not count its other signal direction as exit */
+-			if (sig == SIGTYPE_COMBO && HasSignalOnTrackdir(tile, ReverseTrackdir(trackdir))) {
+-				/* at least one more exit */
+-				if ((flags & SF_EXIT2) &&
++			/* determine whether the new state is red */
++			if (flags & SF_TRAIN) {
++				/* train in the segment */
++				newstate = SIGNAL_STATE_RED;
++			} else {
++				/* is it a bidir combo? - then do not count its other signal direction as exit */
++				if (sig == SIGTYPE_COMBO && HasSignalOnTrackdir(tile, ReverseTrackdir(trackdir))) {
++					/* at least one more exit */
++					if ((flags & SF_EXIT2) &&
+ 						/* no green exit */
+ 						(!(flags & SF_GREEN) ||
+ 						/* only one green exit, and it is this one - so all other exits are red */
+ 						(!(flags & SF_GREEN2) && GetSignalStateByTrackdir(tile, ReverseTrackdir(trackdir)) == SIGNAL_STATE_GREEN))) {
+-					newstate = SIGNAL_STATE_RED;
++						newstate = SIGNAL_STATE_RED;
++					}
++				} else { // entry, at least one exit, no green exit
++					if (IsPresignalEntry(tile, TrackdirToTrack(trackdir)) && (flags & SF_EXIT) && !(flags & SF_GREEN)) newstate = SIGNAL_STATE_RED;
+ 				}
+-			} else { // entry, at least one exit, no green exit
+-				if (IsPresignalEntry(tile, TrackdirToTrack(trackdir)) && (flags & SF_EXIT) && !(flags & SF_GREEN)) newstate = SIGNAL_STATE_RED;
+ 			}
+ 		}
+ 
+@@ -447,9 +462,11 @@ static void UpdateSignalsAroundSegment(SigFlags flags)
+ 			}
+ 			SetSignalStateByTrackdir(tile, trackdir, newstate);
+ 			MarkTileDirtyByTile(tile);
++
++			/* notify logic signals of the state change */
++			SignalStateChanged(tile, TrackdirToTrack(trackdir), 1);
+ 		}
+ 	}
+-
+ }
+ 
+ 
+diff --git a/src/signal_type.h b/src/signal_type.h
+index c7d06072a..f68631b82 100644
+--- a/src/signal_type.h
++++ b/src/signal_type.h
+@@ -29,9 +29,10 @@ enum SignalType {
+ 	SIGTYPE_COMBO      = 3, ///< presignal inter-block
+ 	SIGTYPE_PBS        = 4, ///< normal pbs signal
+ 	SIGTYPE_PBS_ONEWAY = 5, ///< no-entry signal
++	SIGTYPE_LOGIC      = 6, ///< logic signal
+ 
+ 	SIGTYPE_END,
+-	SIGTYPE_LAST       = SIGTYPE_PBS_ONEWAY,
++	SIGTYPE_LAST       = SIGTYPE_LOGIC,
+ 	SIGTYPE_LAST_NOPBS = SIGTYPE_COMBO,
+ };
+ /** Helper information for extract tool. */
+@@ -46,6 +47,10 @@ template <> struct EnumPropsT<SignalType> : MakeEnumPropsT<SignalType, byte, SIG
+ enum SignalState {
+ 	SIGNAL_STATE_RED   = 0, ///< The signal is red
+ 	SIGNAL_STATE_GREEN = 1, ///< The signal is green
++	SIGNAL_STATE_END
+ };
+ 
++template <> struct EnumPropsT<SignalState> : MakeEnumPropsT<SignalState, byte, SIGNAL_STATE_RED, SIGNAL_STATE_END, SIGNAL_STATE_END, 1> {};
++typedef TinyEnumT<SignalState> SignalStateByte;
++
+ #endif /* SIGNAL_TYPE_H */
+diff --git a/src/table/sprites.h b/src/table/sprites.h
+index da3bc7627..16b7f08cf 100644
+--- a/src/table/sprites.h
++++ b/src/table/sprites.h
+@@ -1314,12 +1314,14 @@ static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_EXIT     = SPR_SIGNALS_BASE +  28;
+ static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_COMBO    = SPR_SIGNALS_BASE +  44;
+ static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_PBS      = SPR_SIGNALS_BASE + 124;
+ static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_PBS_OWAY = SPR_SIGNALS_BASE + 140;
++static const SpriteID SPR_IMG_SIGNAL_ELECTRIC_LOGIC    = SPR_SIGNALS_BASE + 156; /* does not exist, yet */
+ static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_NORM    = SPR_SIGNALS_BASE +  60;
+ static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_ENTRY   = SPR_SIGNALS_BASE +  76;
+ static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_EXIT    = SPR_SIGNALS_BASE +  92;
+ static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_COMBO   = SPR_SIGNALS_BASE + 108;
+ static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_PBS     = SPR_SIGNALS_BASE + 188;
+ static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_PBS_OWAY= SPR_SIGNALS_BASE + 204;
++static const SpriteID SPR_IMG_SIGNAL_SEMAPHORE_LOGIC   = SPR_SIGNALS_BASE + 220; /* does not exist, yet */
+ static const SpriteID SPR_IMG_SIGNAL_CONVERT           = SPR_OPENTTD_BASE + 135;
+ 
+ static const SpriteID SPR_IMG_TUNNEL_RAIL   = 2430;
+diff --git a/src/widgets/rail_widget.h b/src/widgets/rail_widget.h
+index f977f4480..0dd214f52 100644
+--- a/src/widgets/rail_widget.h
++++ b/src/widgets/rail_widget.h
+@@ -30,6 +30,7 @@ enum RailToolbarWidgets {
+ 	WID_RAT_BUILD_TUNNEL,   ///< Build a tunnel.
+ 	WID_RAT_REMOVE,         ///< Bulldozer to remove rail.
+ 	WID_RAT_CONVERT_RAIL,   ///< Convert other rail to this type.
++	WID_RAT_PROGRAM_SIGNALS,///< Program logic signals.
+ };
+ 
+ /** Widgets of the #BuildRailStationWindow class. */
+@@ -84,12 +85,14 @@ enum BuildSignalWidgets {
+ 	WID_BS_SEMAPHORE_COMBO,    ///< Build a semaphore combo block signal
+ 	WID_BS_SEMAPHORE_PBS,      ///< Build a semaphore path signal.
+ 	WID_BS_SEMAPHORE_PBS_OWAY, ///< Build a semaphore one way path signal.
++	WID_BS_SEMAPHORE_LOGIC,    ///< Build a semaphore logic signal.
+ 	WID_BS_ELECTRIC_NORM,      ///< Build an electric normal block signal
+ 	WID_BS_ELECTRIC_ENTRY,     ///< Build an electric entry block signal
+ 	WID_BS_ELECTRIC_EXIT,      ///< Build an electric exit block signal
+ 	WID_BS_ELECTRIC_COMBO,     ///< Build an electric combo block signal
+ 	WID_BS_ELECTRIC_PBS,       ///< Build an electric path signal.
+ 	WID_BS_ELECTRIC_PBS_OWAY,  ///< Build an electric one way path signal.
++	WID_BS_ELECTRIC_LOGIC,     ///< Build an electric logic signal.
+ 	WID_BS_CONVERT,            ///< Convert the signal.
+ 	WID_BS_DRAG_SIGNALS_DENSITY_LABEL,    ///< The current signal density.
+ 	WID_BS_DRAG_SIGNALS_DENSITY_DECREASE, ///< Decrease the signal density.
+diff --git a/src/window_type.h b/src/window_type.h
+index 7185bfcb4..8710d9f4b 100644
+--- a/src/window_type.h
++++ b/src/window_type.h
+@@ -693,6 +693,12 @@ enum WindowClass {
+ 	 */
+ 	WC_FRAMETIME_GRAPH,
+ 
++	/**
++	 * Signal program GUI; %Window numbers:
++	 *   - #SignalReference
++	 */
++	WC_SIGNAL_PROGRAM,
++
+ 	WC_INVALID = 0xFFFF, ///< Invalid window.
+ };
+ 
